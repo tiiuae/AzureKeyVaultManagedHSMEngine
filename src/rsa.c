@@ -98,15 +98,20 @@ int akv_pkey_rsa_sign(EVP_PKEY_CTX *ctx, unsigned char *sig,
     }
 
     const char *AKV_ALG = ctx_to_alg(ctx, sigmd);
+    if (!AKV_ALG)
+    {
+        AKVerr(AKV_F_RSA_SIGN, AKV_R_UNSUPPORTED_KEY_ALGORITHM);
+        return 0;
+    }
     Log(LogLevel_Debug, "-->akv_pkey_rsa_sign, tbs size [%zu], AKV_ALG [%s]\n", tbslen, AKV_ALG);
 
-    MemoryStruct accessToken;
+    MemoryStruct accessToken = {0};
     if (!GetAccessTokenFromIMDS(akv_key->keyvault_type, &accessToken))
     {
         return 0;
     }
 
-    MemoryStruct signatureText;
+    MemoryStruct signatureText = {0};
     Log(LogLevel_Debug, "keyvault [%s][%s]\n", akv_key->keyvault_name, akv_key->key_name);
     if (AkvSign(akv_key->keyvault_type, akv_key->keyvault_name, akv_key->key_name, &accessToken, AKV_ALG, tbs, tbslen, &signatureText) == 1)
     {
@@ -187,7 +192,7 @@ int akv_rsa_priv_dec(int flen, const unsigned char *from,
         return -1;
     }
 
-    MemoryStruct clearText;
+    MemoryStruct clearText = {0};
     if (AkvDecrypt(akv_key->keyvault_type, akv_key->keyvault_name, akv_key->key_name, &accessToken, alg, from, flen, &clearText) == 1)
     {
         Log(LogLevel_Debug, "Decrypt successfully clear text size=[%zu]\n", clearText.size);

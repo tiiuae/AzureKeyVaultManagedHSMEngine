@@ -225,7 +225,7 @@ static int load_key(const char *key_id, EVP_PKEY **pevpkey)
         goto err;
     }
 
-    MemoryStruct accessToken;
+    MemoryStruct accessToken = {0};
     if (!GetAccessTokenFromIMDS(keyvault_type, &accessToken))
     {
         goto err;
@@ -251,6 +251,7 @@ static int load_key(const char *key_id, EVP_PKEY **pevpkey)
         RSA_set_method(rsa, akv_rsa_method);
 #endif
         RSA_set_ex_data(rsa, rsa_akv_idx, key);
+        key = NULL; // Key is now owned by RSA object
     }
     else if (EVP_PKEY_id(pkey) == EVP_PKEY_EC)
     {
@@ -265,6 +266,7 @@ static int load_key(const char *key_id, EVP_PKEY **pevpkey)
         EC_KEY_set_method(ec, akv_eckey_method);
 #endif
         EC_KEY_set_ex_data(ec, eckey_akv_idx, key);
+        key = NULL; // Key is now owned by EC object
     }
     else
     {
@@ -297,6 +299,24 @@ err:
  */
 static EVP_PKEY *akv_load_pubkey(ENGINE *eng, const char *key_id,
                                  UI_METHOD *ui_method, void *callback_data)
+{
+    EVP_PKEY *pkey = NULL;
+
+    load_key(key_id, &pkey);
+    return pkey;
+}
+
+/**
+ * @brief Load private key from AKV/HSM.
+ *
+ * @param eng Engine
+ * @param key_id Key ID to load, e.g. "<vault type>:<keyvault name>:<key name>"
+ * @param ui_method Not used
+ * @param callback_data  Not used
+ * @return Private key == success, NULL == failure
+ */
+static EVP_PKEY *akv_load_privkey(ENGINE *eng, const char *key_id,
+                                  UI_METHOD *ui_method, void *callback_data)
 {
     EVP_PKEY *pkey = NULL;
 
@@ -407,7 +427,7 @@ static int bind_akv(ENGINE *e)
                ENGINE_set_EC(e, akv_eckey_method);
 #endif
 
-    ret = ret && ENGINE_set_load_privkey_function(e, akv_load_pubkey) &&
+    ret = ret && ENGINE_set_load_privkey_function(e, akv_load_privkey) &&
                ENGINE_set_load_pubkey_function(e, akv_load_pubkey) &&
                ENGINE_set_pkey_meths(e, akv_pkey_meths) &&
                ENGINE_set_cmd_defns(e, akv_cmd_defns) &&

@@ -72,13 +72,13 @@ int akv_eckey_sign(int type, const unsigned char *dgst, int dlen,
 
   Log(LogLevel_Debug, "-->akv_eckey_sign, dgst size [%d], AKV_ALG [%s]\n", dlen, AKV_ALG);
 
-  MemoryStruct accessToken;
+  MemoryStruct accessToken = {0};
   if (!GetAccessTokenFromIMDS(akv_key->keyvault_type, &accessToken))
   {
     return res;
   }
 
-  MemoryStruct signatureText;
+  MemoryStruct signatureText = {0};
   Log(LogLevel_Debug, "keyvault [%s][%s]\n", akv_key->keyvault_name, akv_key->key_name);
   if (AkvSign(akv_key->keyvault_type, akv_key->keyvault_name, akv_key->key_name, &accessToken, AKV_ALG, dgst, dlen, &signatureText) == 1)
   {

@@ -22,10 +22,27 @@ AKV_KEY *acquire_akv_key(
 
     /*akv info*/
     akv_key->keyvault_type = OPENSSL_zalloc(strlen(keyvault_type) + 1);
+    if (!akv_key->keyvault_type)
+    {
+        AKVerr(AKV_F_ACQUIRE_AKV, AKV_R_ALLOC_FAILURE);
+        goto cleanup;
+    }
     memcpy(akv_key->keyvault_type, keyvault_type, strlen(keyvault_type) + 1);
+    
     akv_key->keyvault_name = OPENSSL_zalloc(strlen(keyvault_name) + 1);
+    if (!akv_key->keyvault_name)
+    {
+        AKVerr(AKV_F_ACQUIRE_AKV, AKV_R_ALLOC_FAILURE);
+        goto cleanup;
+    }
     memcpy(akv_key->keyvault_name, keyvault_name, strlen(keyvault_name) + 1);
+    
     akv_key->key_name = OPENSSL_zalloc(strlen(key_name) + 1);
+    if (!akv_key->key_name)
+    {
+        AKVerr(AKV_F_ACQUIRE_AKV, AKV_R_ALLOC_FAILURE);
+        goto cleanup;
+    }
     memcpy(akv_key->key_name, key_name, strlen(key_name) + 1);
 
     res = akv_key;
@@ -38,7 +55,9 @@ cleanup:
 
 void destroy_akv_key(AKV_KEY *key)
 {
-    assert(key);
+    if (!key)
+        return;
+        
     if (key->keyvault_type)
         OPENSSL_free(key->keyvault_type);
     if (key->keyvault_name)
