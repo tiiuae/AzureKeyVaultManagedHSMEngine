@@ -391,21 +391,26 @@ static int bind_akv(ENGINE *e)
         goto memerr;
 #endif
 
-    if (!ENGINE_set_id(e, engine_akv_id) || 
-        !ENGINE_set_name(e, engine_akv_name) || 
-        !ENGINE_set_flags(e, ENGINE_FLAGS_NO_REGISTER_ALL) || 
-        !ENGINE_set_init_function(e, akv_init) || 
-        !ENGINE_set_finish_function(e, akv_finish) || 
-        !ENGINE_set_destroy_function(e, akv_destroy) || 
+    int ret = 1;
+    ret = ENGINE_set_id(e, engine_akv_id) &&
+          ENGINE_set_name(e, engine_akv_name) &&
+          ENGINE_set_flags(e, ENGINE_FLAGS_NO_REGISTER_ALL) &&
+          ENGINE_set_init_function(e, akv_init) &&
+          ENGINE_set_finish_function(e, akv_finish) &&
+          ENGINE_set_destroy_function(e, akv_destroy);
+
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
-        !ENGINE_set_RSA(e, akv_rsa_method) || 
-        !ENGINE_set_EC(e, akv_eckey_method) || 
+    ret = ret && ENGINE_set_RSA(e, akv_rsa_method) &&
+               ENGINE_set_EC(e, akv_eckey_method);
 #endif
-        !ENGINE_set_load_privkey_function(e, akv_load_pubkey) || 
-        !ENGINE_set_load_pubkey_function(e, akv_load_pubkey) || 
-        !ENGINE_set_pkey_meths(e, akv_pkey_meths) || 
-        !ENGINE_set_cmd_defns(e, akv_cmd_defns) || 
-        !ENGINE_set_ctrl_function(e, akv_ctrl))
+
+    ret = ret && ENGINE_set_load_privkey_function(e, akv_load_pubkey) &&
+               ENGINE_set_load_pubkey_function(e, akv_load_pubkey) &&
+               ENGINE_set_pkey_meths(e, akv_pkey_meths) &&
+               ENGINE_set_cmd_defns(e, akv_cmd_defns) &&
+               ENGINE_set_ctrl_function(e, akv_ctrl);
+    
+    if (!ret)
         goto memerr;
 
     ERR_load_AKV_strings();
@@ -444,8 +449,23 @@ static int bind_helper(ENGINE *e, const char *id)
     return 1;
 }
 
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
 IMPLEMENT_DYNAMIC_CHECK_FN()
 IMPLEMENT_DYNAMIC_BIND_FN(bind_helper)
+#else
+/* OpenSSL 3.0 dynamic engine loading */
+static int bind_fn(ENGINE *e, const char *id)
+{
+    if (id && (strcmp(id, engine_akv_id) != 0))
+        return 0;
+    if (!bind_akv(e))
+        return 0;
+    return 1;
+}
+
+IMPLEMENT_DYNAMIC_BIND_FN(bind_fn)
+IMPLEMENT_DYNAMIC_CHECK_FN()
+#endif
 
 #ifdef _WIN32
 /**
