@@ -5,6 +5,9 @@
 #define PCH_H
 #define __STDC_WANT_LIB_EXT1__ 1
 
+// Include OpenSSL version header first for version detection
+#include <openssl/opensslv.h>
+
 // add headers that you want to pre-compile here
 
 #include <openssl/crypto.h>
@@ -15,6 +18,9 @@
 #include <openssl/engine.h>
 #include <assert.h>
 #include <ctype.h>
+
+// Include our OpenSSL 3 compatibility header
+#include "openssl3_compat.h"
 
 #include <curl/curl.h>
 #include <json-c/json.h>

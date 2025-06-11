@@ -6,8 +6,14 @@
 static const char *engine_akv_id = "e_akv";
 static const char *engine_akv_name = "AKV/HSM engine";
 
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
 static RSA_METHOD *akv_rsa_method = NULL;
 static EC_KEY_METHOD *akv_eckey_method = NULL;
+#else
+/* OpenSSL 3 uses EVP_PKEY methods instead of low-level methods */
+static EVP_PKEY_METHOD *akv_rsa_pkey_meth = NULL;
+static EVP_PKEY_METHOD *akv_rsa_pss_pkey_meth = NULL;
+#endif
 
 int akv_idx = -1;
 int rsa_akv_idx = -1;
@@ -22,6 +28,8 @@ int eckey_akv_idx = -1;
 int akv_rsa_free(RSA *rsa)
 {
     AKV_KEY *akv_key = NULL;
+    
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
     typedef int (*PFN_RSA_meth_finish)(RSA * rsa);
     const RSA_METHOD *ossl_rsa_meth = RSA_PKCS1_OpenSSL();
     PFN_RSA_meth_finish pfn_rsa_meth_finish = RSA_meth_get_finish(ossl_rsa_meth);
@@ -29,6 +37,7 @@ int akv_rsa_free(RSA *rsa)
     {
         pfn_rsa_meth_finish(rsa);
     }
+#endif
 
     akv_key = RSA_get_ex_data(rsa, rsa_akv_idx);
 
@@ -76,10 +85,13 @@ static int akv_init(ENGINE *e)
         if (akv_idx < 0)
             goto err;
 
-        /* Setup RSA_METHOD */
+        /* Setup RSA index */
         rsa_akv_idx = RSA_get_ex_new_index(0, NULL, NULL, NULL, 0);
         if (rsa_akv_idx < 0)
             goto err;
+
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
+        /* Setup RSA_METHOD for OpenSSL 1.1 */
         RSA_meth_set_priv_dec(akv_rsa_method, akv_rsa_priv_dec);
         RSA_meth_set_priv_enc(akv_rsa_method, akv_rsa_priv_enc);
         RSA_meth_set_finish(akv_rsa_method, akv_rsa_free);
@@ -99,6 +111,12 @@ static int akv_init(ENGINE *e)
         EC_KEY_METHOD_set_init(akv_eckey_method, NULL, akv_eckey_free, NULL, NULL, NULL, NULL);
         EC_KEY_METHOD_set_sign(akv_eckey_method, akv_eckey_sign, old_eckey_sign_setup,
                                akv_eckey_sign_sig);
+#else
+        /* For OpenSSL 3, we use EVP_PKEY methods instead */
+        eckey_akv_idx = EC_KEY_get_ex_new_index(0, NULL, NULL, NULL, 0);
+        if (eckey_akv_idx < 0)
+            goto err;
+#endif
     }
 
     return 1;
@@ -127,6 +145,7 @@ static int akv_finish(ENGINE *e)
  */
 static int akv_destroy(ENGINE *e)
 {
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
     if (akv_rsa_method)
     {
         RSA_meth_free(akv_rsa_method);
@@ -137,6 +156,19 @@ static int akv_destroy(ENGINE *e)
     {
         EC_KEY_METHOD_free(akv_eckey_method);
         akv_eckey_method = NULL;
+    }
+#endif
+
+    if (akv_rsa_pkey_meth)
+    {
+        EVP_PKEY_meth_free(akv_rsa_pkey_meth);
+        akv_rsa_pkey_meth = NULL;
+    }
+    
+    if (akv_rsa_pss_pkey_meth)
+    {
+        EVP_PKEY_meth_free(akv_rsa_pss_pkey_meth);
+        akv_rsa_pss_pkey_meth = NULL;
     }
 
     ERR_unload_AKV_strings();
@@ -214,7 +246,9 @@ static int load_key(const char *key_id, EVP_PKEY **pevpkey)
             goto err;
         }
 
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
         RSA_set_method(rsa, akv_rsa_method);
+#endif
         RSA_set_ex_data(rsa, rsa_akv_idx, key);
     }
     else if (EVP_PKEY_id(pkey) == EVP_PKEY_EC)
@@ -226,7 +260,9 @@ static int load_key(const char *key_id, EVP_PKEY **pevpkey)
             goto err;
         }
 
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
         EC_KEY_set_method(ec, akv_eckey_method);
+#endif
         EC_KEY_set_ex_data(ec, eckey_akv_idx, key);
     }
     else
@@ -295,8 +331,6 @@ static int akv_pkey_meths(ENGINE *e, EVP_PKEY_METHOD **pmeth,
 
     if (nid == EVP_PKEY_RSA)
     {
-        static EVP_PKEY_METHOD *akv_rsa_pkey_meth = NULL;
-
         if (!akv_rsa_pkey_meth)
         {
             akv_rsa_pkey_meth = EVP_PKEY_meth_new(EVP_PKEY_RSA, 0);
@@ -311,8 +345,6 @@ static int akv_pkey_meths(ENGINE *e, EVP_PKEY_METHOD **pmeth,
     }
     else if (nid == EVP_PKEY_RSA_PSS)
     {
-        static EVP_PKEY_METHOD *akv_rsa_pss_pkey_meth = NULL;
-
         if (!akv_rsa_pss_pkey_meth)
         {
             akv_rsa_pss_pkey_meth = EVP_PKEY_meth_new(EVP_PKEY_RSA, 0);
@@ -348,6 +380,7 @@ static int akv_pkey_meths(ENGINE *e, EVP_PKEY_METHOD **pmeth,
  */
 static int bind_akv(ENGINE *e)
 {
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
     akv_rsa_method = RSA_meth_dup(RSA_PKCS1_OpenSSL());
     if (!akv_rsa_method)
         goto memerr;
@@ -356,18 +389,41 @@ static int bind_akv(ENGINE *e)
     akv_eckey_method = EC_KEY_METHOD_new(EC_KEY_OpenSSL());
     if (!akv_eckey_method)
         goto memerr;
+#endif
 
-    if (!ENGINE_set_id(e, engine_akv_id) || !ENGINE_set_name(e, engine_akv_name) || !ENGINE_set_flags(e, ENGINE_FLAGS_NO_REGISTER_ALL) || !ENGINE_set_init_function(e, akv_init) || !ENGINE_set_finish_function(e, akv_finish) || !ENGINE_set_destroy_function(e, akv_destroy) || !ENGINE_set_RSA(e, akv_rsa_method) || !ENGINE_set_EC(e, akv_eckey_method) || !ENGINE_set_load_privkey_function(e, akv_load_pubkey) || !ENGINE_set_load_pubkey_function(e, akv_load_pubkey)|| !ENGINE_set_pkey_meths(e, akv_pkey_meths) || !ENGINE_set_cmd_defns(e, akv_cmd_defns) || !ENGINE_set_ctrl_function(e, akv_ctrl))
+    if (!ENGINE_set_id(e, engine_akv_id) || 
+        !ENGINE_set_name(e, engine_akv_name) || 
+        !ENGINE_set_flags(e, ENGINE_FLAGS_NO_REGISTER_ALL) || 
+        !ENGINE_set_init_function(e, akv_init) || 
+        !ENGINE_set_finish_function(e, akv_finish) || 
+        !ENGINE_set_destroy_function(e, akv_destroy) || 
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
+        !ENGINE_set_RSA(e, akv_rsa_method) || 
+        !ENGINE_set_EC(e, akv_eckey_method) || 
+#endif
+        !ENGINE_set_load_privkey_function(e, akv_load_pubkey) || 
+        !ENGINE_set_load_pubkey_function(e, akv_load_pubkey) || 
+        !ENGINE_set_pkey_meths(e, akv_pkey_meths) || 
+        !ENGINE_set_cmd_defns(e, akv_cmd_defns) || 
+        !ENGINE_set_ctrl_function(e, akv_ctrl))
         goto memerr;
 
     ERR_load_AKV_strings();
     return 1;
 memerr:
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
     if (akv_rsa_method)
     {
         RSA_meth_free(akv_rsa_method);
         akv_rsa_method = NULL;
     }
+    
+    if (akv_eckey_method)
+    {
+        EC_KEY_METHOD_free(akv_eckey_method);
+        akv_eckey_method = NULL;
+    }
+#endif
 
     return 0;
 }
