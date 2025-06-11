@@ -226,6 +226,10 @@ int AkvSign(const char *type, const char *keyvault, const char *keyname, const M
   struct json_object *parsed_json = NULL;
   unsigned char *encodeResult = NULL;
 
+  // Initialize output parameter to prevent double free
+  signatureText->memory = NULL;
+  signatureText->size = 0;
+
   MemoryStruct signature;
   signature.memory = NULL;
   signature.size = 0;

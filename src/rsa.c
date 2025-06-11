@@ -117,25 +117,34 @@ int akv_pkey_rsa_sign(EVP_PKEY_CTX *ctx, unsigned char *sig,
     {
         Log(LogLevel_Debug, "Signed successfully signature.size=[%zu]\n", signatureText.size);
 
-        if (*siglen == signatureText.size)
+        if (*siglen >= signatureText.size)
         {
             memcpy(sig, signatureText.memory, signatureText.size);
+            *siglen = signatureText.size;
         }
         else
         {
-            Log(LogLevel_Debug, "size prob = %zu\n", signatureText.size);
-            *siglen = signatureText.size;
+            Log(LogLevel_Error, "Buffer too small. Required: %zu, provided: %zu\n", signatureText.size, *siglen);
+            if (signatureText.memory)
+                free(signatureText.memory);
+            if (accessToken.memory)
+                free(accessToken.memory);
+            return 0;
         }
 
-        free(signatureText.memory);
-        free(accessToken.memory);
+        if (signatureText.memory)
+            free(signatureText.memory);
+        if (accessToken.memory)
+            free(accessToken.memory);
         return 1;
     }
     else
     {
         Log(LogLevel_Error, "Failed to Sign\n");
-        free(signatureText.memory);
-        free(accessToken.memory);
+        if (signatureText.memory)
+            free(signatureText.memory);
+        if (accessToken.memory)
+            free(accessToken.memory);
         return 0;
     }
 }
@@ -205,15 +214,19 @@ int akv_rsa_priv_dec(int flen, const unsigned char *from,
             Log(LogLevel_Debug, "size probe, return [%zu]\n", clearText.size);
         }
 
-        free(clearText.memory);
-        free(accessToken.memory);
+        if (clearText.memory)
+            free(clearText.memory);
+        if (accessToken.memory)
+            free(accessToken.memory);
         return (int)clearText.size;
     }
     else
     {
         Log(LogLevel_Error, "Failed to decrypt\n");
-        free(clearText.memory);
-        free(accessToken.memory);
+        if (clearText.memory)
+            free(clearText.memory);
+        if (accessToken.memory)
+            free(accessToken.memory);
         return -1;
     }
 }
