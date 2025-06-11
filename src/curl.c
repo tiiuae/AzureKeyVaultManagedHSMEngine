@@ -360,8 +360,22 @@ static EVP_PKEY *getPKey(const unsigned char *n, const size_t nSize, const unsig
     return NULL;
   }
 
-  if (!RSA_set0_key(rsa, BN_bin2bn(n, (int)nSize, NULL), BN_bin2bn(e, (int)eSize, NULL), NULL))
+  BIGNUM *bn_n = BN_bin2bn(n, (int)nSize, NULL);
+  BIGNUM *bn_e = BN_bin2bn(e, (int)eSize, NULL);
+  
+  if (!bn_n || !bn_e)
   {
+    BN_free(bn_n);
+    BN_free(bn_e);
+    EVP_PKEY_free(pk);
+    Log(LogLevel_Error, "Failed to create BIGNUM objects\n");
+    return NULL;
+  }
+  
+  if (!RSA_set0_key(rsa, bn_n, bn_e, NULL))
+  {
+    BN_free(bn_n);
+    BN_free(bn_e);
     EVP_PKEY_free(pk);
     Log(LogLevel_Error, "RSA_set0_key failed\n");
     return NULL;
@@ -376,12 +390,24 @@ static EVP_PKEY *getECPKey(int nid_curve, const unsigned char *x, const size_t x
   EC_KEY_set_asn1_flag(ec_key, OPENSSL_EC_NAMED_CURVE);
   EC_KEY_set_conv_form(ec_key, POINT_CONVERSION_COMPRESSED);
   //  EC_KEY_set_conv_form(EVP_PKEY_get1_EC_KEY(peer_key), POINT_CONVERSION_COMPRESSED);
-  if (!EC_KEY_set_public_key_affine_coordinates(
-          ec_key,
-          BN_bin2bn(x, (int)xSize, NULL),
-          BN_bin2bn(y, (int)ySize, NULL)))
+  BIGNUM *bn_x = BN_bin2bn(x, (int)xSize, NULL);
+  BIGNUM *bn_y = BN_bin2bn(y, (int)ySize, NULL);
+  
+  if (!bn_x || !bn_y)
   {
-    Log(LogLevel_Error, "set affine coordinatres failed\n");
+    BN_free(bn_x);
+    BN_free(bn_y);
+    EC_KEY_free(ec_key);
+    Log(LogLevel_Error, "Failed to create BIGNUM objects for EC coordinates\n");
+    return NULL;
+  }
+  
+  if (!EC_KEY_set_public_key_affine_coordinates(ec_key, bn_x, bn_y))
+  {
+    BN_free(bn_x);
+    BN_free(bn_y);
+    EC_KEY_free(ec_key);
+    Log(LogLevel_Error, "set affine coordinates failed\n");
     return NULL;
   }
 
