@@ -333,39 +333,35 @@ static int akv_pkey_meths(ENGINE *e, EVP_PKEY_METHOD **pmeth,
     if (nid == EVP_PKEY_RSA)
     {
         /* Create the method only once and store it in the static variable */
-        static EVP_PKEY_METHOD *rsa_pkey_meth = NULL;
-        if (!rsa_pkey_meth)
+        if (!akv_rsa_pkey_meth)
         {
-            rsa_pkey_meth = EVP_PKEY_meth_new(EVP_PKEY_RSA, 0);
-            EVP_PKEY_meth_copy(rsa_pkey_meth,
+            akv_rsa_pkey_meth = EVP_PKEY_meth_new(EVP_PKEY_RSA, 0);
+            EVP_PKEY_meth_copy(akv_rsa_pkey_meth,
                                EVP_PKEY_meth_find(EVP_PKEY_RSA));
-            EVP_PKEY_meth_set_sign(rsa_pkey_meth, 0,
+            EVP_PKEY_meth_set_sign(akv_rsa_pkey_meth, 0,
                                    akv_pkey_rsa_sign);
-            akv_rsa_pkey_meth = rsa_pkey_meth;
         }
 
-        *pmeth = rsa_pkey_meth;
+        *pmeth = akv_rsa_pkey_meth;
         return 1;
     }
     else if (nid == EVP_PKEY_RSA_PSS)
     {
         /* Create the method only once and store it in the static variable */
-        static EVP_PKEY_METHOD *rsa_pss_pkey_meth = NULL;
-        if (!rsa_pss_pkey_meth)
+        if (!akv_rsa_pss_pkey_meth)
         {
-            rsa_pss_pkey_meth = EVP_PKEY_meth_new(EVP_PKEY_RSA, 0);
-            EVP_PKEY_meth_copy(rsa_pss_pkey_meth,
+            akv_rsa_pss_pkey_meth = EVP_PKEY_meth_new(EVP_PKEY_RSA, 0);
+            EVP_PKEY_meth_copy(akv_rsa_pss_pkey_meth,
                                EVP_PKEY_meth_find(EVP_PKEY_RSA_PSS));
 
             int (*old_sign_init)(EVP_PKEY_CTX *) = NULL;
-            EVP_PKEY_meth_get_sign(rsa_pss_pkey_meth,
+            EVP_PKEY_meth_get_sign(akv_rsa_pss_pkey_meth,
                                    &old_sign_init, NULL);
-            EVP_PKEY_meth_set_sign(rsa_pss_pkey_meth,
+            EVP_PKEY_meth_set_sign(akv_rsa_pss_pkey_meth,
                                    old_sign_init, akv_pkey_rsa_sign);
-            akv_rsa_pss_pkey_meth = rsa_pss_pkey_meth;
         }
 
-        *pmeth = rsa_pss_pkey_meth;
+        *pmeth = akv_rsa_pss_pkey_meth;
         return 1;
     }
     else if (nid == EVP_PKEY_EC)
