@@ -18,6 +18,27 @@ static EVP_PKEY_METHOD *akv_rsa_pss_pkey_meth = NULL;
 int akv_idx = -1;
 int rsa_akv_idx = -1;
 int eckey_akv_idx = -1;
+int pkey_akv_idx = -1;
+
+/**
+ * @brief Free AKV_KEY from EVP_PKEY ex_data, for OpenSSL 3.0 compatibility.
+ *
+ * @param parent EVP_PKEY parent key
+ * @param ptr AKV_KEY pointer
+ * @param ad Not Used
+ * @param idx EVP_PKEY external data index
+ * @param argl Not Used
+ * @param argp Not Used
+ */
+static void destroy_akv_key_ex(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
+                              int idx, long argl, void *argp)
+{
+    AKV_KEY *akv_key = (AKV_KEY *)ptr;
+    if (akv_key)
+    {
+        destroy_akv_key(akv_key);
+    }
+}
 
 /**
  * @brief Free RSA context, paired with RSA_set_ex_data in akv_load_privkey.
@@ -89,6 +110,13 @@ static int akv_init(ENGINE *e)
         rsa_akv_idx = RSA_get_ex_new_index(0, NULL, NULL, NULL, 0);
         if (rsa_akv_idx < 0)
             goto err;
+
+        /* Setup EVP_PKEY index for OpenSSL 3.0 compatibility */
+        /* Temporarily disabled - not currently used
+        pkey_akv_idx = EVP_PKEY_get_ex_new_index(0, NULL, NULL, NULL, destroy_akv_key_ex);
+        if (pkey_akv_idx < 0)
+            goto err;
+        */
 
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
         /* Setup RSA_METHOD for OpenSSL 1.1 */
@@ -240,13 +268,20 @@ static int load_key(const char *key_id, EVP_PKEY **pevpkey)
 
     if (EVP_PKEY_id(pkey) == EVP_PKEY_RSA)
     {
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+        // In OpenSSL 3.0, get non-const RSA for method setting
+        RSA *rsa = (RSA *)EVP_PKEY_get0_RSA(pkey);
+#else
         RSA *rsa = EVP_PKEY_get0_RSA(pkey);
+#endif
         if (!rsa)
         {
             AKVerr(AKV_F_LOAD_KEY_CERT, AKV_R_INVALID_RSA);
             goto err;
         }
 
+        // Set RSA method and ex_data for both OpenSSL 1.1.x and 3.0
+        // This ensures certificate generation works properly
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
         RSA_set_method(rsa, akv_rsa_method);
 #endif
@@ -255,7 +290,12 @@ static int load_key(const char *key_id, EVP_PKEY **pevpkey)
     }
     else if (EVP_PKEY_id(pkey) == EVP_PKEY_EC)
     {
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+        // In OpenSSL 3.0, get non-const EC_KEY for method setting
+        EC_KEY *ec = (EC_KEY *)EVP_PKEY_get0_EC_KEY(pkey);
+#else
         EC_KEY *ec = EVP_PKEY_get0_EC_KEY(pkey);
+#endif
         if (!ec)
         {
             AKVerr(AKV_F_LOAD_KEY_CERT, AKV_R_INVALID_EC_KEY);

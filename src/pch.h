@@ -181,6 +181,7 @@ typedef struct AKV_KEY_st AKV_KEY;
 extern int akv_idx;
 extern int rsa_akv_idx;
 extern int eckey_akv_idx;
+extern int pkey_akv_idx;
 
 /**
  * @brief Create AKV_KEY structure to store key vault type, key vault name, and key name.

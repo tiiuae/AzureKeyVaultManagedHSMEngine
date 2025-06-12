@@ -55,6 +55,7 @@
 #define AKV_R_AKV_DECRYPT_FAIL_1 0x11C
 #define AKV_R_AKV_DECRYPT_FAIL_2 0x11D
 #define AKV_R_ENCODE_FAIL 0x11E
+#define AKV_R_CANT_SET_EX_DATA 0x11F
 
 int ERR_load_AKV_strings(void);
 void ERR_unload_AKV_strings(void);

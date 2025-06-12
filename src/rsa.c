@@ -77,6 +77,13 @@ int akv_pkey_rsa_sign(EVP_PKEY_CTX *ctx, unsigned char *sig,
     }
 
     AKV_KEY *akv_key = RSA_get_ex_data(rsa, rsa_akv_idx);
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+    // For OpenSSL 3.0, try EVP_PKEY ex_data if RSA ex_data is not available
+    if (!akv_key)
+    {
+        akv_key = EVP_PKEY_get_ex_data(pkey, pkey_akv_idx);
+    }
+#endif
     if (!akv_key)
     {
         AKVerr(AKV_F_RSA_SIGN, AKV_R_CANT_GET_AKV_KEY);
