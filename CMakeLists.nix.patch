@@ -1,0 +1,42 @@
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -15,6 +15,11 @@ endif()
+ 
+ # Add OpenSSL 3 compatibility
+ add_definitions(-DOPENSSL_API_COMPAT=0x10100000L)
++
++# Find packages using modern CMake
++find_package(OpenSSL REQUIRED)
++find_package(CURL REQUIRED)
++find_package(PkgConfig REQUIRED)
++pkg_check_modules(JSONC REQUIRED json-c)
+ 
+ set(eakv_src
+   ctrl.c
+@@ -33,14 +38,17 @@ add_library(eakv SHARED $<TARGET_OBJECTS:eakv_obj>)
+ set_target_properties(eakv
+   PROPERTIES OUTPUT_NAME e_akv PREFIX "" SUFFIX ".so"
+   )
+-find_library(SSL_LIB libssl.so REQUIRED)
+-find_library(CRYPTO_LIB libcrypto.so REQUIRED)
+-find_library(CURL_LIB libcurl.so REQUIRED)
+-find_library(JSONC_LIB libjson-c.so REQUIRED)
++
++# Link with modern CMake targets
+ target_link_libraries(eakv
+-  ${CRYPTO_LIB}
+-  ${SSL_LIB}
+-  ${CURL_LIB}
+-  ${JSONC_LIB}
++  OpenSSL::SSL
++  OpenSSL::Crypto
++  ${CURL_LIBRARIES}
++  ${JSONC_LIBRARIES}
++  )
++
++# Include directories
++target_include_directories(eakv PRIVATE
++  ${JSONC_INCLUDE_DIRS}
+   )
+ 
+ # Determine the correct installation path based on OpenSSL version
