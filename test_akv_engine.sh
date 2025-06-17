@@ -1,7 +1,7 @@
-	#!/bin/bash
+#!/bin/bash
 
-	# Azure Key Vault OpenSSL Engine Test Suite  
-	# Tests: 1) Engine loading 2) Certificate generation 3) File signing 4) sbsign style signing
+# Azure Key Vault OpenSSL Engine Test Suite  
+# Tests: 1) Engine loading 2) Certificate generation 3) File signing 4) sbsign style signing
 
 	set -e  # Exit on any error
 
@@ -54,8 +54,7 @@
 		exit 1
 	    fi
 	    
-	    USER_TOKEN=$(az account get-access-token --resource https://vault.azure.net --query accessToken -o tsv)
-	    if [ $? -ne 0 ]; then
+	    if ! USER_TOKEN=$(az account get-access-token --resource https://vault.azure.net --query accessToken -o tsv); then
 		print_status "ERROR" "Failed to get Azure access token. Please ensure you're logged in with 'az login'."
 		exit 1
 	    fi
